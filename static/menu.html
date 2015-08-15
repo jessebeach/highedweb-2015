@@ -1,0 +1,228 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Accessible menu example</title>
+    <meta charset="UTF-8" />
+    <style>
+      [role="menubar"],
+      [role="menu"] {
+        list-style: none;
+        padding-left: 0;
+        padding-right: 0;
+        white-space: nowrap;
+      }
+      [role="menubar"] [role="menuitem"],
+      [role="menu"] [role="menuitem"] {
+      }
+      [role="menubar"]:after,
+      [role="menu"]:after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+      [role="menubar"] > li {
+        float: left;
+      }
+      [role="menuitem"].closed > [role="menu"] {
+        display: none;
+      }
+      [role="menuitem"] [role="menu"] {
+        position: absolute;
+      }
+      [role="menuitem"] [role="menuitem"] > [role="menu"] {
+        left: 100%;
+        top: 0;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div
+      role="navigation"
+      aria-label="Site">
+      <ul
+        role="menubar">
+        <li
+          role="menuitem">
+          <span>Label</span>
+          <ul
+            role="menu">
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+              <ul
+                role="menu">
+                <li
+                  role="menuitem">
+                  <span>submenu item label</span>
+                </li>
+                <li
+                  role="menuitem">
+                  <span>submenu item label</span>
+                </li>
+              </ul>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+          </ul>
+       </li>
+        <li
+          role="menuitem">
+          <span>Label</span>
+          <ul
+            role="menu">
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+          </ul>
+       </li>
+        <li
+          role="menuitem">
+          <span>Label</span>
+          <ul
+            role="menu">
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+          </ul>
+       </li>
+        <li
+          role="menuitem">
+          <span>Label</span>
+          <ul
+            role="menu">
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+            <li
+              role="menuitem">
+              <span>submenu item label</span>
+            </li>
+          </ul>
+       </li>
+      </ul>
+    </div>
+
+    <script>
+      (function () {
+        var dom = {
+          arraySafe: function (thing) {
+            if (thing.constructor !== Array) {
+              return [thing];
+            }
+            return thing;
+          },
+          scry: function () {
+            if (!document.querySelectorAll) {
+              console.error('This browser does not implement document.querySelectorAll.');
+              return [];
+            }
+            // Return a real array instead of a DOM Node List.
+            return []
+              .slice
+              .call(document.querySelectorAll([]
+                .slice
+                .call(arguments)
+                .join(', ')
+              ));
+          },
+          css: function (nodes, property, value) {
+            nodes = this.arraySafe(nodes);
+            return nodes.forEach(function (node) {
+              node.style[property] = value;
+            });
+          },
+          toggleClass: function (nodes, className, add) {
+            nodes = this.arraySafe(nodes);
+            var method = 'toogle';
+            if (typeof add !== 'undefined') {
+              method = (add === true) ? 'add' : 'remove';
+            }
+            return nodes.forEach(function (node) {
+              var hasClass = node.classList.contains(className);
+              switch (method) {
+                case 'toggle':
+                  if (hasClass) {
+                    node.classList.remove(className);
+                  }
+                  else {
+                    node.classList.add(className);
+                  }
+                  break;
+                default:
+                  node.classList[method](className);
+              }
+            });
+          },
+          on: function (nodes, eventName, handler) {
+            nodes = this.arraySafe(nodes);
+            return nodes.forEach(function (node) {
+              node.addEventListener(eventName, handler, false);
+            });
+          }
+        };
+
+        var nodes;
+        // Hide the submenus.
+        dom.toggleClass(
+          dom.scry('[role="menuitem"]'),
+          'closed', true
+        );
+
+        // Add Mouse events.
+        nodes = dom.scry('[role="menuitem"]');
+        dom.on(nodes, 'mouseover', function (event) {
+          dom.toggleClass(this, 'closed', false);
+        });
+        dom.on(nodes, 'mouseout', function (event) {
+          dom.toggleClass(this, 'closed', true);
+        });
+      }());
+    </script>
+  </body>
+</html>
