@@ -11,16 +11,14 @@
         padding-right: 0;
         white-space: nowrap;
       }
-      [role="menubar"] [role="menuitem"],
-      [role="menu"] [role="menuitem"] {
-      }
       [role="menubar"]:after,
       [role="menu"]:after {
         content: "";
         display: table;
         clear: both;
       }
-      [role="menubar"] > li {
+      [role="menubar"].horizontal > [role="menuitem"],
+      [role="menu"].horizontal > [role="menuitem"] {
         float: left;
       }
       [role="menuitem"].closed > [role="menu"] {
@@ -40,10 +38,14 @@
     <div
       role="navigation"
       aria-label="Site">
+      <p
+        id="menubar-description">Use the arrow keys to navigate the menu.</p>
       <ul
-        role="menubar">
+        role="menubar"
+        class="horizontal">
         <li
-          role="menuitem">
+          role="menuitem"
+          aria-describedby="menubar-description">
           <span>Label</span>
           <ul
             role="menu">
@@ -152,29 +154,28 @@
       (function () {
         var dom = {
           arraySafe: function (thing) {
-            if (thing.constructor !== Array) {
+            var constr = thing.constructor;
+            if (constr === HTMLCollection || constr === NodeList) {
+              return [].slice.call(thing);
+            }
+            if (constr !== Array) {
               return [thing];
             }
             return thing;
           },
-          scry: function () {
+          scry: function (selector, context) {
             if (!document.querySelectorAll) {
               console.error('This browser does not implement document.querySelectorAll.');
               return [];
             }
+            context = context || document;
             // Return a real array instead of a DOM Node List.
-            return []
-              .slice
-              .call(document.querySelectorAll([]
-                .slice
-                .call(arguments)
-                .join(', ')
-              ));
+            return dom.arraySafe(context.querySelectorAll(selector));
           },
-          css: function (nodes, property, value) {
+          css: function (nodes, name, value) {
             nodes = this.arraySafe(nodes);
             return nodes.forEach(function (node) {
-              node.style[property] = value;
+              node.style[name] = value;
             });
           },
           toggleClass: function (nodes, className, add) {
@@ -199,28 +200,183 @@
               }
             });
           },
+          setAttr: function (nodes, name, value) {
+            nodes = dom.arraySafe(nodes);
+            nodes.forEach(function (node) {
+              node.setAttribute(name, value);
+            });
+          },
           on: function (nodes, eventName, handler) {
             nodes = this.arraySafe(nodes);
             return nodes.forEach(function (node) {
               node.addEventListener(eventName, handler, false);
             });
+          },
+          focus: function (node, context) {
+            if (node) {
+              node.focus();
+            }
           }
         };
 
         var nodes;
         // Hide the submenus.
-        dom.toggleClass(
-          dom.scry('[role="menuitem"]'),
-          'closed', true
-        );
+        nodes = dom.scry('[role="menuitem"]');
+        dom.toggleClass(nodes, 'closed', true);
+        dom.setAttr(nodes, 'tabindex', -1);
+        // Add aria-haspopup=true to all items with sub menus.
+        nodes = nodes
+          .filter(function (node) {
+            var menuitem;
+            [].forEach.call(node.children, function (child) {
+              if (child.getAttribute('role') === 'menu') {
+                menuitem = child;
+              }
+            });
+            return !!menuitem;
+          });
+        dom.setAttr(nodes, 'aria-haspopup', true);
+        nodes = dom.scry('[role="menubar"] > [role="menuitem"]:first-child');
+        // Set the tabindex on the first menu item to zero.
+        dom.setAttr(nodes, 'tabindex', 0);
+        // Set the tabindices.
 
-        // Add Mouse events.
+        // Handle mouse events.
         nodes = dom.scry('[role="menuitem"]');
         dom.on(nodes, 'mouseover', function (event) {
           dom.toggleClass(this, 'closed', false);
         });
         dom.on(nodes, 'mouseout', function (event) {
           dom.toggleClass(this, 'closed', true);
+        });
+        dom.on(nodes, 'focus', function (event) {
+          dom.toggleClass(event.target, 'closed', false);
+        });
+
+        // Handle key events.
+        nodes = dom.scry('[role="menubar"]');
+        dom.on(nodes, 'keyup', function (event) {
+          var upDownTraverses = (!event.target.parentNode
+            .classList.contains('horizontal'));
+          /**
+           *
+           */
+          var traverse = function (up, elements, currentElement) {
+            elements = dom.arraySafe(elements);
+            // Is any of the elements focused?
+            var index = elements.indexOf(currentElement);
+            // Move between the menu items.
+            var dir = up ? -1 : 1;
+            var end = up ? 0 : elements.length - 1;
+            // Keep the index within the bounds of the array of menu items.
+            return elements[index + dir];
+          };
+          /**
+           *
+           */
+          var jumpToChild = function (item) {
+            var menuitem;
+            [].forEach.call(item.children, function (child) {
+              if (child.getAttribute('role') === 'menu') {
+                menuitem = child.children[0];
+              }
+            });
+            return menuitem;
+          };
+          /**
+           *
+           */
+          var jumpToParent = function (item) {
+            var parentMenu = item.parentNode;
+            return parentMenu && parentMenu.parentNode;
+          };
+          // Handle key presses.
+          var nextElement;
+          var currentElement = document.activeElement;
+          switch (event.keyCode) {
+          // up, down
+          case 38:
+          case 40:
+            var up = event.keyCode === 38
+            if (upDownTraverses) {
+              nextElement = traverse(up, event.target.parentNode.children, currentElement);
+              if (!nextElement) {
+                if (up) {
+                  nextElement = jumpToParent(event.target);
+                  if (nextElement) {
+                    dom.toggleClass(currentElement, 'closed', true);
+                  }
+                }
+              }
+              else {
+                dom.toggleClass(currentElement, 'closed', true);
+              }
+            }
+            else {
+              if (up) {
+                nextElement = jumpToParent(event.target);
+                if (nextElement) {
+                  dom.toggleClass(currentElement, 'closed', true);
+                }
+              }
+              else {
+                nextElement = jumpToChild(event.target);
+              }
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            break;
+          // left, right
+          case 37:
+          case 39:
+            var left = event.keyCode === 37;
+            if (upDownTraverses) {
+              if (left) {
+                nextElement = jumpToParent(event.target);
+                if (nextElement) {
+                  dom.toggleClass(currentElement, 'closed', true);
+                }
+              }
+              else {
+                nextElement = jumpToChild(event.target);
+              }
+            }
+            else {
+              nextElement = traverse(left, event.target.parentNode.children, currentElement);
+              if (!nextElement) {
+                if (up) {
+                  nextElement = jumpToParent(event.target);
+                  if (nextElement) {
+                    dom.toggleClass(currentElement, 'closed', true);
+                  }
+                }
+              }
+              else {
+                dom.toggleClass(currentElement, 'closed', true);
+              }
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            break;
+          // tab
+          case 9:
+            console.log(event.keyCode);
+            // @todo On tab out, close all the menus.
+            break;
+          // escape. @todo, close all menus on escape key and move focus
+          // to the first item.
+
+          // return
+          case 13:
+            console.log(event.keyCode);
+            event.preventDefault();
+            event.stopPropagation();
+            break;
+          default:
+            break;
+          }
+          // Set focus on the nextElement.
+          dom.focus(nextElement);
         });
       }());
     </script>
